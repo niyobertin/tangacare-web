@@ -28,7 +28,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             return;
         }
 
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiUrl = import.meta.env.VITE_API || 'http://localhost:3000';
         const socketUrl = apiUrl.replace(/\/api\/?$/, '');
 
         console.log('[SocketContext] Connecting to socket at:', socketUrl);
@@ -60,7 +60,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             console.error('[SocketContext] Connection Error:', err.message);
         });
 
-        console.log('[SocketContext] Initializing socket for user:', user.id, 'at', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+        console.log('[SocketContext] Initializing socket for user:', user.id, 'at', import.meta.env.VITE_API || 'http://localhost:3000');
 
         setSocket(socketInstance);
 
