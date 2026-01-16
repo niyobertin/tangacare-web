@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, AlertTriangle, Pill, Activity, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertTriangle, Pill, Activity, Plus } from 'lucide-react';
 import { healthRecordService } from '@/services/health-record.service';
 import type { HealthRecord } from '@/types/health';
 import { format } from 'date-fns';

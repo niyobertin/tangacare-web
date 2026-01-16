@@ -33,8 +33,8 @@ function ActionMenu({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [coords, setCoords] = useState({ top: 0, left: 0 });
-    const [openUpwards, setOpenUpwards] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
+    // const [openUpwards, setOpenUpwards] = useState(false); // Unused
+    // const menuRef = useRef<HTMLDivElement>(null); // Unused
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     // Close on scroll or resize to prevent floating menu detachment
@@ -55,7 +55,7 @@ function ActionMenu({
             const SPACE_BELOW = window.innerHeight - rect.bottom;
 
             const isUp = SPACE_BELOW < MENU_HEIGHT;
-            setOpenUpwards(isUp);
+            // setOpenUpwards(isUp);
 
             setCoords({
                 top: isUp ? (rect.top - MENU_HEIGHT - 4) : (rect.bottom + 4),

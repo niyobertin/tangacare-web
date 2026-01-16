@@ -1,15 +1,15 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { Appointment, CreateAppointmentDTO } from '@/types/appointment';
+import type { Appointment } from '@/types/appointment';
 
 const appointmentSchema = z.object({
     doctor_id: z.coerce.number().min(1, 'Doctor is required'),
-    patient_id: z.coerce.number().optional(), // In a real app we'd select this
+    patient_id: z.coerce.number().optional(),
     appointment_date: z.string().min(1, 'Date is required'),
     appointment_time: z.string().min(1, 'Time is required'),
     duration_minutes: z.coerce.number().min(5, 'Duration must be at least 5 minutes'),
@@ -29,7 +29,7 @@ interface AppointmentFormModalProps {
 
 export function AppointmentFormModal({ isOpen, onClose, onSubmit, initialData, isLoading }: AppointmentFormModalProps) {
     const { register, handleSubmit, reset, formState: { errors } } = useForm<AppointmentFormValues>({
-        resolver: zodResolver(appointmentSchema),
+        resolver: zodResolver(appointmentSchema) as any,
         defaultValues: {
             duration_minutes: 30,
             consultation_type: 'video',

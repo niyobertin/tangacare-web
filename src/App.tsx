@@ -7,6 +7,7 @@ import LoginPage from '@/pages/auth/LoginPage';
 import { CallProvider } from '@/context/CallContext';
 import { CallOverlay } from '@/components/chat/CallOverlay';
 import { IncomingCallModal } from '@/components/chat/IncomingCallModal';
+import { OutgoingCallModal } from '@/components/chat/OutgoingCallModal';
 import ChatPage from '@/pages/dashboard/ChatPage';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import OverviewPage from '@/pages/dashboard/OverviewPage';
@@ -29,6 +30,7 @@ function App() {
             <CallProvider>
               <CallOverlay />
               <IncomingCallModal />
+              <OutgoingCallModal />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
 

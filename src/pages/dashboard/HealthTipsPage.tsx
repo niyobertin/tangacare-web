@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { healthTipService } from '@/services/health-tip.service';
 import type { HealthTip } from '@/types/health';
 import { format } from 'date-fns';

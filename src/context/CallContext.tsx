@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import { useSocket } from './SocketContext';
-import { useAuth } from './AuthContext';
+// import { useAuth } from './AuthContext'; // Unused
 
 // Define types locally or import from types file if preferred
 interface CallData {
@@ -11,7 +11,7 @@ interface CallData {
     callType: 'audio' | 'video';
 }
 
-type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'active' | 'ended';
+type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'active' | 'ended' | 'rejected';
 
 interface CallContextType {
     callStatus: CallStatus;
@@ -23,17 +23,20 @@ interface CallContextType {
     acceptCall: () => void;
     rejectCall: () => void;
     endCall: () => void;
+    resetCall: () => void; // New function
     toggleAudio: () => void;
     toggleVideo: () => void;
     isAudioEnabled: boolean;
     isVideoEnabled: boolean;
+    activeCallType: 'audio' | 'video' | null;
+    lastCallParams: { conversationId: number; calleeId: number; type: 'audio' | 'video' } | null; // New prop
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { socket } = useSocket();
-    const { user } = useAuth();
+    // const { user } = useAuth(); // Unused
 
     const [callStatus, setCallStatus] = useState<CallStatus>('idle');
     const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
@@ -42,9 +45,119 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+    const [activeCallType, setActiveCallType] = useState<'audio' | 'video' | null>(null);
 
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const localStreamRef = useRef<MediaStream | null>(null);
+    const isCallInitiator = useRef<boolean>(false);
+    const lastCallParamsRef = useRef<{ conversationId: number; calleeId: number; type: 'audio' | 'video' } | null>(null);
+
+    // Web Audio API refs
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const oscillatorsRef = useRef<OscillatorNode[]>([]);
+    const gainNodeRef = useRef<GainNode | null>(null);
+
+    const initAudioContext = () => {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        if (audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+        return audioContextRef.current;
+    };
+
+    const stopSounds = useCallback(() => {
+        oscillatorsRef.current.forEach(osc => {
+            try {
+                osc.stop();
+                osc.disconnect();
+            } catch (e) { /* ignore */ }
+        });
+        oscillatorsRef.current = [];
+        if (gainNodeRef.current) {
+            gainNodeRef.current.disconnect();
+            gainNodeRef.current = null;
+        }
+    }, []);
+
+    // const playTone ... (Unused function removed or commented out to satisfy linter)
+
+    // Better Ringtone Implementation with Interval
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+
+        if (incomingCall) {
+            // Incoming Ringtone: "Double Ring" style (Ring-Ring... Silence)
+            // distinct from outgoing beep
+            // Incoming Ringtone: "Digital Melody"
+            const playRing = () => {
+                const ctx = initAudioContext();
+                const t = ctx.currentTime;
+
+                // Simple Arpeggio: C4 - E4 - G4 (Major Triad)
+                const playNote = (freq: number, start: number, duration: number) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+
+                    gain.gain.setValueAtTime(0.1, start);
+                    gain.gain.linearRampToValueAtTime(0, start + duration);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    osc.start(start);
+                    osc.stop(start + duration);
+                };
+
+                // Play sequence
+                playNote(523.25, t, 0.2);       // C5
+                playNote(659.25, t + 0.2, 0.2); // E5
+                playNote(783.99, t + 0.4, 0.4); // G5 
+
+                // Pause then repeat slightly changed
+                playNote(523.25, t + 1.0, 0.2); // C5
+                playNote(659.25, t + 1.2, 0.2); // E5
+                playNote(783.99, t + 1.4, 0.4); // G5
+            };
+
+            playRing(); // Start immediately
+            interval = setInterval(playRing, 3000); // Repeat cycle every 3s
+
+        } else if (callStatus === 'outgoing') {
+            // Outgoing Ringback: User requested 3s beep
+            stopSounds();
+
+            const playBeep = () => {
+                const ctx = initAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                // 400Hz (slightly lower pitch for distinction)
+                osc.frequency.value = 400;
+                gain.gain.value = 0.1;
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 3); // Beep for 3 seconds
+            };
+
+            playBeep(); // Start immediately
+            interval = setInterval(playBeep, 4000); // Repeat every 4s (3s beep + 1s silence)
+        } else {
+            stopSounds();
+        }
+
+        return () => {
+            clearInterval(interval);
+            stopSounds();
+        };
+    }, [incomingCall, callStatus, stopSounds]);
 
     // WebRTC Configuration
     const rtcConfig: RTCConfiguration = {
@@ -70,6 +183,7 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setCallStatus('idle');
         setIncomingCall(null);
         setActiveCallId(null);
+        isCallInitiator.current = false; // Reset initiator status
     }, []);
 
     const createPeerConnection = useCallback((callId: number) => {
@@ -119,25 +233,37 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initiateCall = async (conversationId: number, calleeId: number, type: 'audio' | 'video') => {
         if (!socket) return;
+        isCallInitiator.current = true; // We are the caller
+        lastCallParamsRef.current = { conversationId, calleeId, type }; // Save params for recall
 
         const stream = await getLocalStream(type);
         if (!stream) return; // TODO: handle error
 
         socket.emit('call_initiate', { conversationId, calleeId, callType: type });
         setCallStatus('outgoing');
+        setActiveCallType(type);
         // We don't have callId yet, backend should send 'call_initiated' or similar, 
         // but looking at events, 'call_initiated' event gives us the callId.
     };
 
     const acceptCall = async () => {
-        if (!socket || !incomingCall) return;
+        console.log('[AG-DEBUG] acceptCall started', incomingCall);
+        if (!socket || !incomingCall) {
+            console.log('[AG-DEBUG] acceptCall aborted: no socket or incomingCall');
+            return;
+        }
 
         const stream = await getLocalStream(incomingCall.callType);
-        if (!stream) return;
+        if (!stream) {
+            console.log('[AG-DEBUG] acceptCall aborted: failed to get stream');
+            return;
+        }
 
+        console.log('[AG-DEBUG] Emitting call_accept', { callId: incomingCall.callId });
         socket.emit('call_accept', { callId: incomingCall.callId });
         setActiveCallId(incomingCall.callId);
-        setCallStatus('active'); // Should probably wait for connection, but for now UI can show active
+        setActiveCallType(incomingCall.callType);
+        setCallStatus('active'); // Sets UI to active immediately
 
         // Setup WebRTC after accepting? 
         // Usually, the caller creates the offer upon receiving 'call_accepted'.
@@ -150,6 +276,7 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         socket.emit('call_reject', { callId: incomingCall.callId });
         setIncomingCall(null);
         setCallStatus('idle');
+        isCallInitiator.current = false; // Reset initiator status
     };
 
     const endCall = () => {
@@ -157,6 +284,10 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         socket.emit('call_end', { callId: activeCallId });
         cleanupCall();
     };
+
+    const resetCall = useCallback(() => {
+        cleanupCall();
+    }, [cleanupCall]);
 
     const toggleAudio = () => {
         if (localStreamRef.current) {
@@ -188,66 +319,85 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('[CallContext] Attaching socket event listeners');
 
         const handleIncomingCall = (data: CallData) => {
-            console.log('Incoming call:', data);
+            console.log('[AG-DEBUG] Incoming call:', data);
+            isCallInitiator.current = false; // We are the callee
             setIncomingCall(data);
             setCallStatus('incoming');
         };
 
         const handleCallInitiated = (data: { callId: number }) => {
-            console.log('Call initiated, ID:', data.callId);
+            console.log('[AG-DEBUG] Call initiated, ID:', data.callId);
             setActiveCallId(data.callId);
         };
 
         const handleCallAccepted = async (data: { callId: number }) => {
-            console.log('Call accepted:', data);
+            console.log('[AG-DEBUG] Call accepted:', data);
             setCallStatus('active');
 
-            // Caller: Create Offer
-            const pc = createPeerConnection(data.callId);
-            if (pc) {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                socket.emit('webrtc_offer', { callId: data.callId, sdp: offer });
+            if (isCallInitiator.current) {
+                // Caller: Create Offer
+                console.log('[AG-DEBUG] I am the Caller. Creating PeerConnection');
+                const pc = createPeerConnection(data.callId);
+                if (pc) {
+                    console.log('[AG-DEBUG] Creating Offer');
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    console.log('[AG-DEBUG] Sending Offer');
+                    socket.emit('webrtc_offer', { callId: data.callId, sdp: offer });
+                }
+            } else {
+                console.log('[AG-DEBUG] I am the Callee. Waiting for Offer.');
             }
         };
 
-        const handleCallRejected = (data: { callId: number }) => {
-            console.log('Call rejected');
-            cleanupCall();
-            alert('Call was rejected');
+        const handleCallRejected = (_data: { callId: number }) => {
+            console.log('[AG-DEBUG] Call rejected');
+            // Clean up streams but keep context for "Recall"
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach(track => track.stop());
+                localStreamRef.current = null;
+            }
+            setLocalStream(null);
+            stopSounds();
+            setCallStatus('rejected');
         };
 
-        const handleCallEnded = (data: { callId: number }) => {
-            console.log('Call ended by remote');
+        const handleCallEnded = (_data: { callId: number }) => {
+            console.log('[AG-DEBUG] Call ended by remote');
             cleanupCall();
         };
 
         const handleWebRTCOffer = async (data: { callId: number; sdp: RTCSessionDescriptionInit }) => {
-            console.log('Received Offer');
+            console.log('[AG-DEBUG] Received Offer', data);
             // Callee receives offer
             if (!peerConnection.current) {
+                console.log('[AG-DEBUG] Creating PeerConnection (Callee)');
                 createPeerConnection(data.callId);
             }
             const pc = peerConnection.current;
             if (pc) {
+                console.log('[AG-DEBUG] Setting Remote Description (Offer)');
                 await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                console.log('[AG-DEBUG] Creating Answer');
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
+                console.log('[AG-DEBUG] Sending Answer');
                 socket.emit('webrtc_answer', { callId: data.callId, sdp: answer });
             }
         };
 
         const handleWebRTCAnswer = async (data: { callId: number; sdp: RTCSessionDescriptionInit }) => {
-            console.log('Received Answer');
+            console.log('[AG-DEBUG] Received Answer');
             // Caller receives answer
             const pc = peerConnection.current;
             if (pc) {
+                console.log('[AG-DEBUG] Setting Remote Description (Answer)');
                 await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
             }
         };
 
         const handleWebRTCIceCandidate = async (data: { callId: number; candidate: RTCIceCandidateInit }) => {
-            console.log('Received ICE Candidate');
+            console.log('[AG-DEBUG] Received ICE Candidate');
             const pc = peerConnection.current;
             if (pc) {
                 await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
@@ -287,10 +437,13 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 acceptCall,
                 rejectCall,
                 endCall,
+                resetCall,
                 toggleAudio,
                 toggleVideo,
                 isAudioEnabled,
                 isVideoEnabled,
+                activeCallType,
+                lastCallParams: lastCallParamsRef.current,
             }}
         >
             {children}

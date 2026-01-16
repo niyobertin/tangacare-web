@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { format } from 'date-fns';
-import { Calendar, Clock, Video, MapPin, User, FileText, Grid, List, ChevronLeft, ChevronRight, MoreVertical, Search, Plus } from 'lucide-react';
+import { Calendar, Clock, Video, MapPin, User, Grid, List, ChevronLeft, ChevronRight, MoreVertical, Search, Plus } from 'lucide-react';
 import { appointmentService } from '@/services/appointment.service';
 import type { Appointment } from '@/types/appointment';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppointmentDetailsModal } from '@/components/dashboard/appointments/AppointmentDetailsModal';
 import { AppointmentFormModal } from '@/components/dashboard/appointments/AppointmentFormModal';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const AppointmentsPage = () => {
     const { user } = useAuth();
@@ -91,8 +92,8 @@ const AppointmentsPage = () => {
     };
 
     const filteredAppointments = appointments.filter(apt =>
-        apt.doctor?.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        apt.patient?.first_name.toLowerCase().includes(searchQuery.toLowerCase())
+        (apt.doctor?.last_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (apt.patient?.first_name || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const getStatusColor = (status: string) => {
@@ -182,6 +183,32 @@ const AppointmentsPage = () => {
         </tr>
     );
 
+    // Skeleton Component
+    const AppointmentSkeleton = () => (
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm animate-pulse">
+            <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                    <Skeleton className="w-10 h-10 rounded-full" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                    </div>
+                </div>
+                <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+
+            <div className="space-y-3 mb-4">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-28" />
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-4" />
+            </div>
+        </div>
+    );
+
     return (
         <div className="space-y-6">
             {/* Header Controls */}
@@ -222,7 +249,11 @@ const AppointmentsPage = () => {
 
             {/* Content Area */}
             {isLoading ? (
-                <div className="py-20 text-center text-gray-500">Loading appointments...</div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <AppointmentSkeleton key={i} />
+                    ))}
+                </div>
             ) : (
                 <>
                     {viewMode === 'grid' ? (

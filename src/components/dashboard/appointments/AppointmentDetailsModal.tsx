@@ -1,9 +1,9 @@
-import React from 'react';
+
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import type { Appointment } from '@/types/appointment';
 import { format } from 'date-fns';
-import { Calendar, Clock, User, FileText, MapPin, Video, Activity } from 'lucide-react';
+import { Calendar, User, FileText, MapPin, Video, Activity } from 'lucide-react';
 
 interface AppointmentDetailsModalProps {
     isOpen: boolean;

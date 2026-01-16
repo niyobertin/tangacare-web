@@ -6,7 +6,6 @@ import type { Conversation, Message } from '@/types/chat';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { Video, Phone, MoreVertical } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 
 interface ChatWindowProps {
     conversation: Conversation;

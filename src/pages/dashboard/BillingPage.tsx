@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CreditCard, Download, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Download, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { paymentService } from '@/services/payment.service';
 import type { Payment } from '@/types/payment';
 import { format } from 'date-fns';
