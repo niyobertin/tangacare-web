@@ -15,7 +15,8 @@ interface ChatWindowProps {
 export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation }) => {
     const { socket } = useSocket();
     const { initiateCall } = useCall();
-    const { user } = useAuth();
+    // user is not used currently
+    // const { user } = useAuth();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,11 +57,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation }) => {
 
     const loadMessages = async () => {
         setIsLoading(true);
+        console.log('Loading messages for conversation:', conversation.id);
         try {
             const data = await chatService.getMessages(conversation.id);
+            console.log('Fetched messages:', data);
             if (data && data.messages) {
                 const sortedMessages = data.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 setMessages(sortedMessages);
+            } else {
+                setMessages([]);
             }
         } catch (error) {
             console.error('Failed to load messages', error);
@@ -91,24 +96,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation }) => {
     };
 
     const handleVideoCall = () => {
-        // Determine the other user's ID. 
-        // Assuming conversation object has participants or similar. 
-        // Typically: conversation.participants.find(p => p.id !== user.id)
-        // Or if it's a direct chat, maybe conversation.other_user?
-        // Checking types/chat.ts leads to exact implementation.
-        // Assuming Conversation has participant info.
-
-        // Since I haven't seen types/chat.ts result yet (parallel call), I will use defensive coding 
-        // or rely on common patterns. But better to be sure. 
-        // Let's assume conversation.other_user based on typical patterns or usage in ChatPage/List.
-        // Actually, let's wait for the type check? No, I'm doing replace_file_content in the same turn.
-        // I'll assume `other_user` for now based on `conversation` usage elsewhere which I might have missed or will see.
-
-        // Wait, I requested view_file types/chat.ts. 
-        // I should probably wait for it. But I can't in one turn if I want to edit.
-        // I'll guess standard properties or check how ChatPage calculated unread? It just used unread_count.
-        // I'll assume conversation has `other_user` which has `id` and `name`.
-
         if (conversation.other_user) {
             initiateCall(conversation.id, conversation.other_user.id, 'video');
         } else {
@@ -120,6 +107,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation }) => {
         return <div className="flex-1 flex items-center justify-center">Loading messages...</div>;
     }
 
+    const otherUserName = conversation.other_user
+        ? `${conversation.other_user.first_name} ${conversation.other_user.last_name}`.trim()
+        : 'Unknown User';
+
+    const otherUserInitial = conversation.other_user?.first_name?.charAt(0) || '?';
+
     return (
         <div className="flex flex-col h-full">
             {/* Header */}
@@ -127,12 +120,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversation }) => {
                 <div className="flex items-center space-x-3">
                     <div className="relative">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                            {conversation.other_user?.name?.charAt(0) || '?'}
+                            {otherUserInitial}
                         </div>
                         {/* Status indicator could go here */}
                     </div>
                     <div>
-                        <h3 className="font-semibold text-gray-900">{conversation.other_user?.name || 'Unknown User'}</h3>
+                        <h3 className="font-semibold text-gray-900">{otherUserName}</h3>
                         <p className="text-xs text-gray-500">Online</p>
                     </div>
                 </div>

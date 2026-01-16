@@ -10,6 +10,7 @@ interface ConversationListProps {
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({ conversations, selectedId, onSelect, isLoading }) => {
+    console.log('ConversationList props:', { conversations, isLoading });
     if (isLoading) {
         return <div className="p-4 text-center text-gray-500">Loading conversations...</div>;
     }

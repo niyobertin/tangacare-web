@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChatLayout } from '@/components/chat/ChatLayout';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { ChatWindow } from '@/components/chat/ChatWindow';
@@ -12,6 +12,12 @@ const ChatPage = () => {
     const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const conversationsRef = useRef(conversations);
+
+    useEffect(() => {
+        conversationsRef.current = conversations;
+    }, [conversations]);
+
     useEffect(() => {
         loadConversations();
     }, []);
@@ -20,25 +26,30 @@ const ChatPage = () => {
         if (!socket) return;
 
         const handleNewMessage = (message: Message) => {
-            setConversations((prev) => {
-                const updated = [...prev];
-                const index = updated.findIndex((c) => c.id === message.conversation_id);
+            console.log('New message received:', message);
+            const currentConvs = conversationsRef.current;
+            const index = currentConvs.findIndex((c) => c.id === message.conversation_id);
 
-                if (index !== -1) {
-                    const conv = updated[index];
-                    updated.splice(index, 1);
-                    updated.unshift({
-                        ...conv,
-                        last_message: message.content,
-                        last_message_at: message.created_at,
-                        unread_count: selectedConversationId === conv.id ? conv.unread_count : conv.unread_count + 1
-                    });
-                } else {
-                    // New conversation started? Or just reload list if we don't have it.
-                    // Ideally we fetch it. For now, we only update existing.
-                }
-                return updated;
-            });
+            if (index !== -1) {
+                setConversations((prev) => {
+                    const updated = [...prev];
+                    const idx = updated.findIndex((c) => c.id === message.conversation_id);
+                    if (idx !== -1) {
+                        const conv = updated[idx];
+                        updated.splice(idx, 1);
+                        updated.unshift({
+                            ...conv,
+                            last_message: message.content,
+                            last_message_at: message.created_at,
+                            unread_count: selectedConversationId === conv.id ? conv.unread_count : conv.unread_count + 1
+                        });
+                    }
+                    return updated;
+                });
+            } else {
+                console.log('New conversation detected via socket, reloading list...');
+                loadConversations();
+            }
         };
 
         socket.on('new_message', handleNewMessage);

@@ -180,7 +180,12 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Socket Event Listeners
     useEffect(() => {
-        if (!socket) return;
+        if (!socket) {
+            console.log('[CallContext] Socket not available yet');
+            return;
+        }
+
+        console.log('[CallContext] Attaching socket event listeners');
 
         const handleIncomingCall = (data: CallData) => {
             console.log('Incoming call:', data);
