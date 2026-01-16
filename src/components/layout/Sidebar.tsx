@@ -9,7 +9,8 @@ import {
     CreditCard,
 
     LogOut,
-    Activity
+    Activity,
+    MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/types/auth';
@@ -24,6 +25,7 @@ interface SidebarProps {
 
 const NAV_ITEMS = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'doctor', 'nurse', 'receptionist'] },
+    { label: 'Messages', path: '/messages', icon: MessageSquare, roles: ['admin', 'doctor', 'nurse', 'receptionist', 'patient'] },
     { label: 'Patients', path: '/patients', icon: Users, roles: ['admin', 'doctor', 'nurse', 'receptionist'] },
     { label: 'Doctors', path: '/doctors', icon: Stethoscope, roles: ['admin', 'receptionist'] },
     { label: 'Appointments', path: '/appointments', icon: Calendar, roles: ['admin', 'doctor', 'nurse', 'receptionist'] },
